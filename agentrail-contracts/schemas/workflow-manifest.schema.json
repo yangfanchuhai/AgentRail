@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentrail.dev/schemas/v1/workflow-manifest.schema.json",
+  "title": "WorkflowManifest",
+  "description": "Full manifest describing a workflow run – persisted in Postgres / MinIO. This is the snapshot loaded by the Temporal workflow at runtime to drive graph execution.",
+  "type": "object",
+  "properties": {
+    "run_id": {
+      "type": "string",
+      "description": "Unique identifier for this workflow run. Typically a UUID.",
+      "minLength": 1
+    },
+    "graph": {
+      "$ref": "graphspec.schema.json",
+      "description": "The executable graph definition for this workflow run."
+    },
+    "variables": {
+      "type": "object",
+      "description": "Run-level variables (initial state) available to all nodes during execution. Keys are variable names, values are arbitrary JSON.",
+      "default": {},
+      "additionalProperties": true
+    },
+    "metadata": {
+      "type": "object",
+      "description": "Arbitrary metadata attached to the manifest (e.g. tenant_id, created_by, tags, version). Not used during execution but useful for auditing and filtering.",
+      "default": {},
+      "properties": {
+        "tenant_id": {
+          "type": "string",
+          "description": "Owning tenant/organisation identifier."
+        },
+        "created_by": {
+          "type": "string",
+          "description": "User or service that created this manifest."
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO-8601 timestamp of creation."
+        },
+        "version": {
+          "type": "integer",
+          "description": "Schema version of this manifest.",
+          "minimum": 1
+        },
+        "tags": {
+          "type": "array",
+          "description": "Free-form tags for categorisation.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": ["run_id", "graph"],
+  "additionalProperties": false
+}

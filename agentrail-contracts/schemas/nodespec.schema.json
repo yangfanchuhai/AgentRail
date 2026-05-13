@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentrail.dev/schemas/v1/nodespec.schema.json",
+  "title": "NodeSpec",
+  "description": "A single node (agent step) in the workflow graph. Nodes represent discrete execution units such as LLM agent calls, tool invocations, routing decisions, or I/O gates.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique node identifier within the graph. Must be non-empty and unique among all nodes in the same GraphSpec.",
+      "minLength": 1
+    },
+    "type": {
+      "type": "string",
+      "description": "Node type determining execution semantics.",
+      "default": "agent",
+      "enum": [
+        "agent",
+        "tool",
+        "router",
+        "input",
+        "output",
+        "human",
+        "subgraph",
+        "parallel",
+        "delay"
+      ]
+    },
+    "label": {
+      "type": "string",
+      "description": "Human-readable display label for the node.",
+      "default": ""
+    },
+    "config": {
+      "type": "object",
+      "description": "Node-level configuration object. Structure varies by node type. For 'agent' nodes this typically includes: model, system_prompt, tools, temperature, max_tokens, etc.",
+      "default": {},
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model identifier for agent nodes (e.g. 'gpt-4o', 'claude-3-opus')."
+        },
+        "system_prompt": {
+          "type": "string",
+          "description": "System prompt template for agent nodes."
+        },
+        "tools": {
+          "type": "array",
+          "description": "List of tool identifiers available to this agent node.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "temperature": {
+          "type": "number",
+          "description": "Sampling temperature for LLM calls.",
+          "minimum": 0,
+          "maximum": 2
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Maximum tokens in the LLM response.",
+          "minimum": 1
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "Execution timeout in seconds for this node.",
+          "minimum": 1,
+          "default": 300
+        },
+        "retry_policy": {
+          "type": "object",
+          "description": "Retry policy for this node's execution.",
+          "properties": {
+            "max_attempts": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 3
+            },
+            "initial_interval_seconds": {
+              "type": "number",
+              "minimum": 0,
+              "default": 1
+            },
+            "backoff_coefficient": {
+              "type": "number",
+              "minimum": 1,
+              "default": 2
+            }
+          }
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "required": ["id"],
+  "additionalProperties": false
+}

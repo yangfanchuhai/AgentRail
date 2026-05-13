@@ -1,0 +1,62 @@
+# ===========================
+# Java / Maven
+# ===========================
+target/
+!.mvn/wrapper/maven-wrapper.jar
+
+# ===========================
+# IDE
+# ===========================
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+.factorypath
+*.swp
+*.swo
+*~
+
+# ===========================
+# OS
+# ===========================
+.DS_Store
+Thumbs.db
+
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.venv/
+venv/
+env/
+
+# ===========================
+# Logs
+# ===========================
+*.log
+logs/
+
+# ===========================
+# Environment / Secrets
+# ===========================
+.env
+.env.*
+!.env.example
+
+# ===========================
+# Build artifacts
+# ===========================
+*.jar
+*.war
+*.ear
+*.class

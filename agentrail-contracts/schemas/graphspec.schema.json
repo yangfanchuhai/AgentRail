@@ -1,0 +1,37 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentrail.dev/schemas/v1/graphspec.schema.json",
+  "title": "GraphSpec",
+  "description": "Complete graph definition – the executable blueprint for a workflow run. Contains all nodes, edges, and entry/end pointers. This is the core data structure shared between the Java control plane and Python execution plane.",
+  "type": "object",
+  "properties": {
+    "nodes": {
+      "type": "array",
+      "description": "List of all nodes in the graph. Each node id must be unique within this list.",
+      "items": {
+        "$ref": "nodespec.schema.json"
+      },
+      "default": []
+    },
+    "edges": {
+      "type": "array",
+      "description": "List of all directed edges in the graph. Each edge id must be unique within this list. Source/target must reference valid node ids or the 'END' sentinel.",
+      "items": {
+        "$ref": "edgespec.schema.json"
+      },
+      "default": []
+    },
+    "entry_node": {
+      "type": "string",
+      "description": "id of the entry node where execution begins. Must reference a valid NodeSpec.id in the nodes array.",
+      "minLength": 1
+    },
+    "end_node": {
+      "type": "string",
+      "description": "id of the terminal node or sentinel value marking workflow completion. Defaults to 'END'.",
+      "default": "END"
+    }
+  },
+  "required": ["nodes", "edges", "entry_node"],
+  "additionalProperties": false
+}

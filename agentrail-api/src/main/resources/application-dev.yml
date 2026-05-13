@@ -1,0 +1,21 @@
+# Development profile — local overrides
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/agentrail_api
+    username: agentrail
+    password: agentrail
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+
+  flyway:
+    enabled: true
+
+logging:
+  level:
+    root: INFO
+    com.agentrail: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE

@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentrail.dev/schemas/v1/tool-version.schema.json",
+  "title": "ToolVersion",
+  "description": "Tool definition version. Represents a versioned tool (function/API) that can be bound to agent nodes. Tools are registered in the control plane and invoked by the execution plane.",
+  "type": "object",
+  "properties": {
+    "tool_id": {
+      "type": "string",
+      "description": "Unique tool identifier (stable across versions).",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version string for this tool version (e.g. '1.0.0').",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable tool name."
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of what this tool does. Used by LLM for tool selection."
+    },
+    "type": {
+      "type": "string",
+      "description": "Tool invocation type.",
+      "enum": ["function", "api", "mcp", "builtin"],
+      "default": "function"
+    },
+    "parameters": {
+      "type": "object",
+      "description": "JSON Schema defining the tool's input parameters. Follows OpenAI function calling parameter format.",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["object"],
+          "default": "object"
+        },
+        "properties": {
+          "type": "object",
+          "description": "Parameter definitions keyed by parameter name.",
+          "additionalProperties": true
+        },
+        "required": {
+          "type": "array",
+          "description": "List of required parameter names.",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": ["type"],
+      "additionalProperties": true
+    },
+    "endpoint": {
+      "type": "object",
+      "description": "Connection details for API/MCP type tools.",
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Endpoint URL for API type tools."
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"],
+          "description": "HTTP method for API type tools.",
+          "default": "POST"
+        },
+        "headers": {
+          "type": "object",
+          "description": "Additional HTTP headers.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "auth_type": {
+          "type": "string",
+          "description": "Authentication type for the endpoint.",
+          "enum": ["none", "api_key", "oauth2", "basic"],
+          "default": "none"
+        }
+      }
+    },
+    "timeout_seconds": {
+      "type": "integer",
+      "description": "Execution timeout in seconds.",
+      "minimum": 1,
+      "default": 30
+    },
+    "retry_policy": {
+      "type": "object",
+      "description": "Retry policy for tool invocations.",
+      "properties": {
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 1,
+          "default": 3
+        },
+        "initial_interval_seconds": {
+          "type": "number",
+          "minimum": 0,
+          "default": 1
+        },
+        "backoff_coefficient": {
+          "type": "number",
+          "minimum": 1,
+          "default": 2
+        }
+      }
+    },
+    "rate_limit": {
+      "type": "object",
+      "description": "Rate limiting configuration for this tool.",
+      "properties": {
+        "requests_per_minute": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "requests_per_day": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "concurrent": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when this version was created."
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User or service that created this version."
+    },
+    "status": {
+      "type": "string",
+      "description": "Lifecycle status of this tool version.",
+      "enum": ["draft", "published", "deprecated", "archived"],
+      "default": "draft"
+    }
+  },
+  "required": ["tool_id", "version", "display_name", "description", "parameters"],
+  "additionalProperties": false
+}

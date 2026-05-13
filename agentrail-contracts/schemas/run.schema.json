@@ -1,0 +1,133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentrail.dev/schemas/v1/run.schema.json",
+  "title": "Run",
+  "description": "Workflow run lifecycle objects – covers run creation input, node-level I/O, and the final run result. These payloads are exchanged between the Java service layer and the Python Temporal worker during execution.",
+  "definitions": {
+    "RunInput": {
+      "title": "RunInput",
+      "description": "Payload sent from the Java control plane to start a new workflow run.",
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "Unique run identifier (UUID).",
+          "minLength": 1
+        },
+        "agent_version_id": {
+          "type": "string",
+          "description": "Reference to the AgentVersion to execute."
+        },
+        "input": {
+          "type": "object",
+          "description": "Initial input payload for the workflow.",
+          "additionalProperties": true
+        },
+        "metadata": {
+          "type": "object",
+          "description": "Run metadata (tenant_id, triggered_by, etc.).",
+          "additionalProperties": true
+        }
+      },
+      "required": ["run_id"]
+    },
+    "NodeInput": {
+      "title": "NodeInput",
+      "description": "Input payload passed to a single node execution activity.",
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "The workflow run this node belongs to.",
+          "minLength": 1
+        },
+        "node": {
+          "$ref": "nodespec.schema.json",
+          "description": "The node specification to execute."
+        },
+        "state": {
+          "type": "object",
+          "description": "Accumulated workflow state from previous node executions.",
+          "default": {},
+          "additionalProperties": true
+        }
+      },
+      "required": ["run_id", "node"],
+      "additionalProperties": false
+    },
+    "NodeOutput": {
+      "title": "NodeOutput",
+      "description": "Output produced by a single node execution activity. Returned to the Temporal workflow to drive control flow.",
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "The workflow run this output belongs to.",
+          "minLength": 1
+        },
+        "node_id": {
+          "type": "string",
+          "description": "The node id that produced this output.",
+          "minLength": 1
+        },
+        "result": {
+          "description": "Node execution result. Type depends on node type.",
+          "default": null
+        },
+        "state": {
+          "type": "object",
+          "description": "Updated workflow state after this node's execution.",
+          "default": {},
+          "additionalProperties": true
+        },
+        "next_node_id": {
+          "type": ["string", "null"],
+          "description": "Override the next node id. Used by router nodes for conditional branching. Null means follow the default edge.",
+          "default": null
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error message if the node execution failed. Null means success.",
+          "default": null
+        }
+      },
+      "required": ["run_id", "node_id"],
+      "additionalProperties": false
+    },
+    "RunStatus": {
+      "title": "RunStatus",
+      "description": "Terminal status of a workflow run.",
+      "type": "string",
+      "enum": ["completed", "failed", "cancelled"]
+    },
+    "RunResult": {
+      "title": "RunResult",
+      "description": "Final result returned by the Temporal workflow upon completion.",
+      "type": "object",
+      "properties": {
+        "run_id": {
+          "type": "string",
+          "description": "The workflow run identifier.",
+          "minLength": 1
+        },
+        "status": {
+          "$ref": "#/definitions/RunStatus",
+          "description": "Terminal status of the run."
+        },
+        "final_state": {
+          "type": "object",
+          "description": "Final accumulated workflow state.",
+          "default": {},
+          "additionalProperties": true
+        },
+        "error": {
+          "type": ["string", "null"],
+          "description": "Error message if the run failed. Null means success.",
+          "default": null
+        }
+      },
+      "required": ["run_id", "status"],
+      "additionalProperties": false
+    }
+  }
+}

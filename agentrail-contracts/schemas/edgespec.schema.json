@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentrail.dev/schemas/v1/edgespec.schema.json",
+  "title": "EdgeSpec",
+  "description": "A directed edge connecting two nodes in the workflow graph. Edges define control flow; optional condition expressions enable branching logic.",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique edge identifier within the graph. Must be non-empty and unique among all edges in the same GraphSpec.",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "description": "Source node id. Must reference a valid NodeSpec.id within the same graph.",
+      "minLength": 1
+    },
+    "target": {
+      "type": "string",
+      "description": "Target node id. Must reference a valid NodeSpec.id within the same graph, or the special end sentinel 'END'.",
+      "minLength": 1
+    },
+    "condition": {
+      "type": ["string", "null"],
+      "description": "Optional condition expression for conditional edges. Evaluated at runtime to determine if this edge is traversed. Supports simple expressions like 'state.status == \"success\"' or JMESPath-like paths. Null means the edge is always traversed (unconditional).",
+      "default": null
+    }
+  },
+  "required": ["id", "source", "target"],
+  "additionalProperties": false
+}

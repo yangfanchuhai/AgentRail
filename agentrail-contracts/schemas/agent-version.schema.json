@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://agentrail.dev/schemas/v1/agent-version.schema.json",
+  "title": "AgentVersion",
+  "description": "Agent capability version registration. Defines a specific versioned agent with its graph, bound tools, model profile, and governance policies. Managed by the Java control plane and referenced during workflow run creation.",
+  "type": "object",
+  "properties": {
+    "agent_id": {
+      "type": "string",
+      "description": "Unique agent identifier (stable across versions).",
+      "minLength": 1
+    },
+    "version": {
+      "type": "string",
+      "description": "Semantic version string for this agent version (e.g. '1.2.0').",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.]+)?$"
+    },
+    "display_name": {
+      "type": "string",
+      "description": "Human-readable agent name."
+    },
+    "description": {
+      "type": "string",
+      "description": "Detailed description of this agent's capabilities."
+    },
+    "graph": {
+      "$ref": "graphspec.schema.json",
+      "description": "The executable graph definition for this agent."
+    },
+    "tools": {
+      "type": "array",
+      "description": "List of tool references bound to this agent version.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tool_id": {
+            "type": "string",
+            "description": "Tool identifier."
+          },
+          "version": {
+            "type": "string",
+            "description": "Tool version reference."
+          }
+        },
+        "required": ["tool_id", "version"]
+      },
+      "default": []
+    },
+    "model_profile": {
+      "type": "object",
+      "description": "Model capability profile for this agent.",
+      "properties": {
+        "model_id": {
+          "type": "string",
+          "description": "Model identifier (e.g. 'gpt-4o', 'claude-3-opus-20240229')."
+        },
+        "provider": {
+          "type": "string",
+          "description": "Model provider (e.g. 'openai', 'anthropic', 'azure-openai')."
+        },
+        "context_window": {
+          "type": "integer",
+          "description": "Maximum context window in tokens.",
+          "minimum": 1
+        },
+        "capabilities": {
+          "type": "array",
+          "description": "Model capabilities (e.g. 'function_calling', 'vision', 'streaming').",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "policies": {
+      "type": "array",
+      "description": "Governance policies attached to this agent version.",
+      "items": {
+        "type": "object",
+        "properties": {
+          "policy_id": {
+            "type": "string",
+            "description": "Policy identifier."
+          },
+          "version": {
+            "type": "string",
+            "description": "Policy version reference."
+          }
+        },
+        "required": ["policy_id", "version"]
+      },
+      "default": []
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO-8601 timestamp when this version was created."
+    },
+    "created_by": {
+      "type": "string",
+      "description": "User or service that created this version."
+    },
+    "status": {
+      "type": "string",
+      "description": "Lifecycle status of this agent version.",
+      "enum": ["draft", "published", "deprecated", "archived"],
+      "default": "draft"
+    }
+  },
+  "required": ["agent_id", "version", "display_name", "graph"],
+  "additionalProperties": false
+}
