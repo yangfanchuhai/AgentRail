@@ -3,6 +3,7 @@ version: "3.9"
 # ============================================================
 # AgentRail 本地开发环境
 # Postgres 16 + pgvector | Temporal Server + Admin Tools | MinIO
+# + agentrail-api (控制面) | agentrail-service (数据面) | worker (执行面)
 # ============================================================
 
 x-common-env: &common-env
@@ -37,7 +38,6 @@ services:
 
   # ----------------------------------------------------------
   # Temporal Server (auto-setup)
-  # 持久化使用同一个 Postgres，数据库名: temporal / temporal_visibility
   # ----------------------------------------------------------
   temporal:
     image: temporalio/auto-setup:1.26.2
@@ -77,7 +77,7 @@ services:
       - agentrail
 
   # ----------------------------------------------------------
-  # Temporal Admin Tools (tctl / temporal CLI)
+  # Temporal Admin Tools
   # ----------------------------------------------------------
   temporal-admin-tools:
     image: temporalio/admin-tools:1.26.2
@@ -87,13 +87,12 @@ services:
       - TEMPORAL_CLI_ADDRESS=temporal:7233
     depends_on:
       - temporal
-    entrypoint: ["tail", "-f", "/dev/null"]   # 保持容器运行以便 exec
+    entrypoint: ["tail", "-f", "/dev/null"]
     networks:
       - agentrail
 
   # ----------------------------------------------------------
   # MinIO (S3-compatible 对象存储)
-  # 默认 bucket: agentrail
   # ----------------------------------------------------------
   minio:
     image: minio/minio:RELEASE.2025-04-22T22-12-26Z
@@ -136,6 +135,99 @@ services:
         echo 'Bucket ${MINIO_BUCKET:-agentrail} already exists';
       fi
       "
+    networks:
+      - agentrail
+
+  # ==========================================================
+  # AgentRail Application Services
+  # ==========================================================
+
+  # ----------------------------------------------------------
+  # agentrail-api — 控制面 (CRUD API, port 8081)
+  # ----------------------------------------------------------
+  agentrail-api:
+    build:
+      context: ..
+      dockerfile: agentrail-api/Dockerfile
+    container_name: agentrail-api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8081}:8081"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/agentrail
+      DATABASE_USERNAME: ${POSTGRES_USER:-agentrail}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-agentrail_dev}
+      SERVER_PORT: "8081"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - agentrail
+
+  # ----------------------------------------------------------
+  # agentrail-service — 数据面 (Run API + Temporal Client, port 8082)
+  # ----------------------------------------------------------
+  agentrail-service:
+    build:
+      context: ..
+      dockerfile: agentrail-service/Dockerfile
+    container_name: agentrail-service
+    restart: unless-stopped
+    ports:
+      - "${SERVICE_PORT:-8082}:8082"
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/agentrail
+      DATABASE_USERNAME: ${POSTGRES_USER:-agentrail}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-agentrail_dev}
+      SERVER_PORT: "8082"
+      TEMPORAL_TARGET: temporal:7233
+      TEMPORAL_NAMESPACE: agentrail
+      TEMPORAL_TASK_QUEUE: agentrail-runs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+      agentrail-api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - agentrail
+
+  # ----------------------------------------------------------
+  # agentrail-worker — 执行面 (Python Temporal Worker)
+  # ----------------------------------------------------------
+  agentrail-worker:
+    build:
+      context: ../agentrail-worker
+      dockerfile: Dockerfile
+    container_name: agentrail-worker
+    restart: unless-stopped
+    environment:
+      TEMPORAL_HOST: temporal:7233
+      TEMPORAL_NAMESPACE: agentrail
+      TEMPORAL_TASK_QUEUE: agentrail-runs
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-agentrail}:${POSTGRES_PASSWORD:-agentrail_dev}@postgres:5432/agentrail
+      AGENTRAIL_SERVICE_URL: http://agentrail-service:8082
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      temporal:
+        condition: service_started
+      agentrail-service:
+        condition: service_healthy
     networks:
       - agentrail
 

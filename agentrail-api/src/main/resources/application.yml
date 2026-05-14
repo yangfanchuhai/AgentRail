@@ -40,5 +40,13 @@ logging:
   level:
     root: INFO
     com.agentrail: DEBUG
-    org.springframework.security: DEBUG
-    org.jooq: DEBUG
+    org.springframework.security: WARN
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

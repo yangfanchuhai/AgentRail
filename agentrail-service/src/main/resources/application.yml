@@ -11,8 +11,8 @@ spring:
     password: ${DATABASE_PASSWORD:agentrail}
     driver-class-name: org.postgresql.Driver
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      maximum-pool-size: 10
+      minimum-idle: 2
 
   jpa:
     hibernate:
@@ -22,12 +22,10 @@ spring:
     properties:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
 
+  # Schema managed by agentrail-api — no Flyway in this module
   flyway:
-    enabled: true
-    locations: classpath:db/migration
-    baseline-on-migrate: true
+    enabled: false
 
   jackson:
     default-property-inclusion: non_null
@@ -50,3 +48,12 @@ logging:
     root: INFO
     com.agentrail: DEBUG
     io.temporal: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: when-authorized

@@ -1,103 +1,144 @@
 # AgentRail
 
-> Workflow 约束下的 Agentic Process Runtime
+**带有工作流约束的智能体流程运行时 (Agentic Process Runtime)**
 
-面向企业复杂任务的 Agentic Workflow Platform。
+AgentRail 让你定义工作流图，将 AI 智能体（Agent）绑定到图中的阶段节点，由策略（Policy）强制治理约束，实现可审计、可恢复的企业级 Agent 编排。
 
-## 核心设计哲学
-
-- **Workflow** 规定"有哪些阶段，以及阶段之间允许如何转换"
-- **Agent** 决定"在某个阶段内如何根据目标、状态、skills、tools、models 完成任务"
-- **Policy** 决定"什么情况下允许这么做、是否需要审批、是否超出预算或权限"
-
-## 架构概览
+## 架构
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    客户端 / 业务系统                       │
-│              Web Console / Biz Backend / CI              │
-├──────────────┬──────────────────┬────────────────────────┤
-│  控制面       │     数据面        │       执行面            │
-│  agentrail   │   agentrail      │     agentrail          │
-│  -api        │  -service        │    -worker             │
-│  (Java 21)   │  (Java 21)       │   (Python 3.12)        │
-│              │                  │                        │
-│  定义/注册    │  Run生命周期      │  Agent执行              │
-│  治理/身份    │  Signal/HumanTask│  Tool/MCP/Model调用     │
-│              │  查询/可观测      │  LangGraph + Temporal   │
-├──────────────┴──────────────────┴────────────────────────┤
-│  Postgres 16 + pgvector  │  Temporal  │  MinIO (S3)      │
-└─────────────────────────────────────────────────────────┘
-```
-
-## 项目结构
-
-```
-AgentRail/
-├── agentrail-api/          # 控制面 — Java 21 + Spring Boot 3
-├── agentrail-service/      # 数据面 — Java 21 + Spring Boot 3
-├── agentrail-worker/       # 执行面 — Python 3.12 + Temporal + LangGraph
-├── agentrail-contracts/    # 跨语言共享契约 (JSON Schema)
-├── deploy/                 # Docker Compose 本地开发环境
-│   ├── docker-compose.yml
-│   ├── postgres/init.sql
-│   └── .env.example
-├── docs/                   # 设计文档
-├── pom.xml                 # Maven 父 POM
-└── README.md
-```
-
-## 快速开始
-
-### 1. 启动本地基础设施
-
-```bash
-cd deploy
-cp .env.example .env
-# 按需修改 .env 中的密码
-docker compose up -d
-```
-
-启动后可用：
-- Postgres: `localhost:5432` (user: agentrail, db: agentrail)
-- Temporal Web UI: http://localhost:8080
-- MinIO Console: http://localhost:9001 (user: minioadmin)
-
-### 2. 启动 Java 服务
-
-```bash
-# 控制面
-cd agentrail-api
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
-
-# 数据面
-cd agentrail-service
-mvn spring-boot:run -Dspring-boot.run.profiles=dev
-```
-
-- agentrail-api: http://localhost:8081
-- agentrail-service: http://localhost:8082
-
-### 3. 启动 Python Worker
-
-```bash
-cd agentrail-worker
-uv sync
-uv run agentrail-worker
+│                    AgentRail 架构                        │
+├───────────────┬──────────────┬──────────────────────────┤
+│  控制面 (API)  │  数据面       │  执行面 (Worker)          │
+│  Java/Spring  │  Java/Temporal│  Python/Temporal          │
+│  port 8081    │  port 8082   │  Temporal Task Queue      │
+├───────────────┼──────────────┼──────────────────────────┤
+│ Tenant CRUD   │ Start Run    │ load_manifest             │
+│ Workflow CRUD │ Cancel Run   │ execute_node (agent/tool) │
+│ Agent CRUD    │ Run Status   │ step lifecycle callbacks  │
+│ Tool CRUD     │ StepRun CRUD │ graph walk orchestration  │
+│ Publish+Valid │ Temporal Clt │ LangGraph (future)        │
+└───────────────┴──────────────┴──────────────────────────┘
+         │              │              │
+         └──────┬───────┴──────────────┘
+                │
+     ┌──────────┼──────────┐
+     │          │          │
+  PostgreSQL  Temporal    MinIO
+  16+pgvector Server     S3存储
 ```
 
 ## 技术栈
 
 | 组件 | 技术 |
 |------|------|
-| 控制面 / 数据面 | Java 21, Spring Boot 3.4, jOOQ, Spring Data JPA, Flyway |
-| 执行面 | Python 3.12, Temporal Python SDK, LangGraph, Pydantic v2 |
-| 前端 | TypeScript, React, Ant Design (计划中) |
+| 控制面 API | Spring Boot 3.4, JPA, PostgreSQL, Flyway |
+| 数据面 Service | Spring Boot 3.4, Temporal Client, JPA |
+| 执行面 Worker | Python 3.12, Temporal SDK, SQLAlchemy, httpx |
+| 工作流引擎 | Temporal 1.26 |
 | 数据库 | PostgreSQL 16 + pgvector |
-| 工作流引擎 | Temporal |
-| 对象存储 | MinIO (S3-compatible) |
-| 契约 | JSON Schema / OpenAPI |
+| 对象存储 | MinIO |
+| 智能体执行 | LangGraph (Phase 3, 规划中) |
+
+## 项目结构
+
+```
+AgentRail/
+├── agentrail-api/          # 控制面 — CRUD API (Spring Boot, port 8081)
+├── agentrail-service/      # 数据面 — Run API + Temporal Client (port 8082)
+├── agentrail-worker/       # 执行面 — Temporal Worker (Python)
+├── deploy/                 # Docker Compose + 测试脚本
+├── docs/                   # 设计文档
+└── pom.xml                 # Maven 父 POM
+```
+
+## 快速开始
+
+### 前置要求
+
+- Docker + Docker Compose
+- JDK 21 (本地开发)
+- Python 3.12+ (本地开发 Worker)
+
+### 启动基础设施
+
+```bash
+cd deploy
+docker-compose up -d postgres temporal temporal-ui minio
+```
+
+### 本地开发 (API + Service)
+
+```bash
+# 编译
+mvn clean package -DskipTests
+
+# 启动控制面 (port 8081)
+java -jar agentrail-api/target/agentrail-api-0.1.0-SNAPSHOT.jar
+
+# 启动数据面 (port 8082)
+java -jar agentrail-service/target/agentrail-service-0.1.0-SNAPSHOT.jar
+```
+
+### 本地开发 (Worker)
+
+```bash
+cd agentrail-worker
+pip install -e .
+agentrail-worker
+```
+
+### 全栈 Docker 启动
+
+```bash
+cd deploy
+docker-compose up -d
+```
+
+### 端到端测试
+
+```bash
+bash deploy/e2e-test.sh
+```
+
+## API 端点
+
+### 控制面 (port 8081)
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/v1/tenants` | 创建租户 |
+| POST | `/api/v1/tenants/{id}/workspaces` | 创建工作空间 |
+| CRUD | `/api/v1/workspaces/{ws}/workflows` | 工作流定义 |
+| POST | `.../workflows/{wf}/versions` | 创建版本 (含 Graph/Node/Edge) |
+| POST | `.../versions/{v}/publish` | 发布校验 |
+| CRUD | `/api/v1/workspaces/{ws}/agents` | Agent 定义 + 版本 |
+| CRUD | `/api/v1/workspaces/{ws}/tools` | Tool 定义 + 版本 |
+
+### 数据面 (port 8082)
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/api/v1/runs` | 启动 Run (→ Temporal) |
+| GET | `/api/v1/runs/{id}` | 查询 Run 状态 |
+| POST | `/api/v1/runs/{id}/cancel` | 取消 Run |
+| GET | `/api/v1/runs/{id}/steps` | 查看 StepRuns |
+| POST | `/api/v1/internal/runs/{id}/status` | Worker 回调 (内部) |
+| POST | `/api/v1/internal/runs/{id}/steps` | Worker 创建 StepRun |
+
+## 端口一览
+
+| 服务 | 端口 |
+|------|------|
+| agentrail-api | 8081 |
+| agentrail-service | 8082 |
+| PostgreSQL | 5432 |
+| Temporal gRPC | 7233 |
+| Temporal UI | 8080 |
+| MinIO API | 9000 |
+| MinIO Console | 9001 |
 
 ## License
 
-Private — All rights reserved.
+All rights reserved. Private project.
