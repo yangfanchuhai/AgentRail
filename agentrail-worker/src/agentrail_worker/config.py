@@ -15,8 +15,8 @@ class TemporalConfig:
     """Temporal server connection settings."""
 
     host: str = field(default_factory=lambda: _env("TEMPORAL_HOST", "localhost:7233"))
-    namespace: str = field(default_factory=lambda: _env("TEMPORAL_NAMESPACE", "default"))
-    task_queue: str = field(default_factory=lambda: _env("TEMPORAL_TASK_QUEUE", "agentrail"))
+    namespace: str = field(default_factory=lambda: _env("TEMPORAL_NAMESPACE", "agentrail"))
+    task_queue: str = field(default_factory=lambda: _env("TEMPORAL_TASK_QUEUE", "agentrail-runs"))
 
 
 @dataclass(frozen=True)
@@ -32,14 +32,12 @@ class PostgresConfig:
 
 
 @dataclass(frozen=True)
-class MinioConfig:
-    """MinIO / S3-compatible object storage settings."""
+class ServiceConfig:
+    """AgentRail Service (Java data plane) callback URL."""
 
-    endpoint: str = field(default_factory=lambda: _env("MINIO_ENDPOINT", "localhost:9000"))
-    access_key: str = field(default_factory=lambda: _env("MINIO_ACCESS_KEY", "minioadmin"))
-    secret_key: str = field(default_factory=lambda: _env("MINIO_SECRET_KEY", "minioadmin"))
-    bucket: str = field(default_factory=lambda: _env("MINIO_BUCKET", "agentrail"))
-    secure: bool = field(default_factory=lambda: _env("MINIO_SECURE", "false").lower() == "true")
+    base_url: str = field(
+        default_factory=lambda: _env("AGENTRAIL_SERVICE_URL", "http://localhost:8082")
+    )
 
 
 @dataclass(frozen=True)
@@ -48,9 +46,9 @@ class Settings:
 
     temporal: TemporalConfig = field(default_factory=TemporalConfig)
     postgres: PostgresConfig = field(default_factory=PostgresConfig)
-    minio: MinioConfig = field(default_factory=MinioConfig)
+    service: ServiceConfig = field(default_factory=ServiceConfig)
     openai_api_key: str = field(default_factory=lambda: _env("OPENAI_API_KEY", ""))
 
 
-# Module-level singleton – cheap to construct, safe to import everywhere.
+# Module-level singleton
 settings = Settings()

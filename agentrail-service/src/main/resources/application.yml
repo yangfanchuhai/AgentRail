@@ -6,7 +6,7 @@ spring:
     name: agentrail-service
 
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/agentrail_service}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/agentrail}
     username: ${DATABASE_USERNAME:agentrail}
     password: ${DATABASE_PASSWORD:agentrail}
     driver-class-name: org.postgresql.Driver
@@ -24,6 +24,11 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
   jackson:
     default-property-inclusion: non_null
     serialization:
@@ -39,8 +44,6 @@ temporal:
     enable-https: false
   worker:
     task-queue: ${TEMPORAL_TASK_QUEUE:agentrail-runs}
-    max-concurrent-workflows: 100
-    max-concurrent-activities: 200
 
 logging:
   level:

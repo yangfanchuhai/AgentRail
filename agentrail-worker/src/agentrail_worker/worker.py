@@ -19,7 +19,7 @@ logger = logging.getLogger("agentrail_worker")
 async def _run() -> None:
     """Connect to Temporal and start the worker."""
     temporal = settings.temporal
-    target = f"{temporal.host}"
+    target = temporal.host
 
     logger.info("Connecting to Temporal at %s (namespace=%s) …", target, temporal.namespace)
     client = await Client.connect(
@@ -35,7 +35,7 @@ async def _run() -> None:
     )
 
     logger.info(
-        "Worker started – task_queue=%s  workflows=[AgentRailWorkflow]  activities=[load_manifest, execute_node]",
+        "Worker started – task_queue=%s  workflow=AgentRailRunWorkflow  activities=[load_manifest, execute_node]",
         temporal.task_queue,
     )
     await worker.run()

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import timedelta
 
 from temporalio import workflow
@@ -21,21 +20,29 @@ _DEFAULT_RETRY = RetryPolicy(
     backoff_coefficient=2.0,
 )
 
-# End sentinel – matches GraphSpec.end_node default
+# End sentinel
 _END = "END"
 
+# Max nodes to prevent infinite loops
+_MAX_NODES = 100
 
-@workflow.defn
+
+@workflow.defn(name="AgentRailRunWorkflow")
 class AgentRailWorkflow:
     """Long-running workflow that walks a GraphSpec node by node.
 
+    Matches the Java service's Temporal workflow type "AgentRailRunWorkflow".
     Signals / queries can be added later for human-in-the-loop patterns.
     """
 
     @workflow.run
-    async def run(self, run_id: str) -> dict:
-        """Execute the graph for *run_id* and return a serialised RunResult."""
-        # 1. Load manifest
+    async def run(self, run_id: str) -> str:
+        """Execute the graph for *run_id* and return a JSON RunResult string.
+
+        The Java service starts this workflow via Temporal Client and expects
+        the return value to be a string (JSON-serialized RunResult).
+        """
+        # 1. Load manifest (queries Postgres via activity)
         manifest_raw: dict = await workflow.execute_activity(
             "load_manifest",
             run_id,
@@ -43,22 +50,29 @@ class AgentRailWorkflow:
             retry_policy=_DEFAULT_RETRY,
         )
 
-        graph = GraphSpec.model_validate(manifest_raw["graph"])
-        entry_node = manifest_raw["graph"].get("entry_node", graph.entry_node)
+        graph_data = manifest_raw.get("graph", {})
+        graph = GraphSpec(
+            nodes=graph_data.get("nodes", []),
+            edges=graph_data.get("edges", []),
+            entry_node=graph_data.get("entry_node", "start"),
+        )
+        entry_node = graph_data.get("entry_node", graph.entry_node)
 
         # 2. Walk the graph
         current_node_id: str | None = entry_node
         state: dict = manifest_raw.get("variables", {})
+        steps = 0
 
-        while current_node_id and current_node_id != _END:
+        while current_node_id and current_node_id != _END and steps < _MAX_NODES:
             node = graph.get_node(current_node_id)
             if node is None:
-                return RunResult(
+                result = RunResult(
                     run_id=run_id,
                     status=RunStatus.FAILED,
                     final_state=state,
                     error=f"Node '{current_node_id}' not found in graph",
-                ).model_dump(mode="json")
+                )
+                return result.model_dump_json()
 
             # Build NodeInput payload
             node_input = {
@@ -71,7 +85,7 @@ class AgentRailWorkflow:
             output_raw: dict = await workflow.execute_activity(
                 "execute_node",
                 node_input,
-                start_to_close_timeout=timedelta(minutes=5),
+                start_to_close_timeout=timedelta(minutes=10),
                 retry_policy=_DEFAULT_RETRY,
             )
             output = NodeOutput.model_validate(output_raw)
@@ -81,12 +95,13 @@ class AgentRailWorkflow:
 
             # Check for errors
             if output.error:
-                return RunResult(
+                result = RunResult(
                     run_id=run_id,
                     status=RunStatus.FAILED,
                     final_state=state,
                     error=output.error,
-                ).model_dump(mode="json")
+                )
+                return result.model_dump_json()
 
             # Determine next node
             if output.next_node_id:
@@ -95,9 +110,22 @@ class AgentRailWorkflow:
                 successors = graph.next_nodes(current_node_id)
                 current_node_id = successors[0] if successors else _END
 
-        # 3. Completed
-        return RunResult(
+            steps += 1
+
+        # 3. Check for infinite loop guard
+        if steps >= _MAX_NODES:
+            result = RunResult(
+                run_id=run_id,
+                status=RunStatus.FAILED,
+                final_state=state,
+                error=f"Exceeded maximum node executions ({_MAX_NODES})",
+            )
+            return result.model_dump_json()
+
+        # 4. Completed
+        result = RunResult(
             run_id=run_id,
             status=RunStatus.COMPLETED,
             final_state=state,
-        ).model_dump(mode="json")
+        )
+        return result.model_dump_json()
